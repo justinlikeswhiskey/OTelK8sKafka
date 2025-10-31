@@ -1,0 +1,37 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kafka-producer
+  namespace: kafka-monitoring
+spec:
+  containers:
+  - name: producer
+    image: confluentinc/cp-kafka:7.5.0
+    command:
+    - /bin/bash
+    - -c
+    - |
+      # Create producer properties file
+      cat > /tmp/producer.properties <<EOF
+      bootstrap.servers=kafka-broker:9092
+      security.protocol=SASL_PLAINTEXT
+      sasl.mechanism=PLAIN
+      sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="producer" password="producer-secret";
+      EOF
+      
+      echo "Waiting for Kafka to be ready..."
+      sleep 30
+      
+      # Create test topic if it doesn't exist
+      kafka-topics --bootstrap-server kafka-broker:9092 \
+        --command-config /tmp/producer.properties \
+        --create --if-not-exists --topic test-topic \
+        --partitions 3 --replication-factor 1 || true
+      
+      echo "Producer ready. Send messages by executing into this pod:"
+      echo "kubectl exec -n kafka-monitoring kafka-producer -it -- kafka-console-producer --bootstrap-server kafka-broker:9092 --topic test-topic --producer.config /tmp/producer.properties"
+      
+      # Keep container running
+      tail -f /dev/null
+  restartPolicy: Always

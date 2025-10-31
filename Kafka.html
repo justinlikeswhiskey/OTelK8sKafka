@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kafka OTel K8s Deployment Package</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+        h1 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .info-box {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            padding: 16px;
+            margin-bottom: 24px;
+            border-radius: 4px;
+        }
+        .info-box h3 {
+            color: #2d3748;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .info-box p {
+            color: #4a5568;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .file-list {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .file-list h3 {
+            color: #2d3748;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            color: #4a5568;
+            font-size: 14px;
+        }
+        .file-item::before {
+            content: "📄";
+            margin-right: 8px;
+        }
+        .button-container {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        button {
+            flex: 1;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .success {
+            background: #48bb78;
+            padding: 12px;
+            border-radius: 8px;
+            color: white;
+            margin-top: 16px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .commands {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin-top: 24px;
+            overflow-x: auto;
+        }
+        .commands code {
+            display: block;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Kafka + OpenTelemetry Deployment</h1>
+        <p class="subtitle">Kubernetes deployment package with SASL authentication</p>
+
+        <div class="info-box">
+            <h3>📦 What's Included</h3>
+            <p>This package contains all the necessary Kubernetes manifests and documentation to deploy a complete Kafka cluster with OpenTelemetry monitoring, including broker, consumer, Zookeeper, and OTEL Collector with SASL authentication.</p>
+        </div>
+
+        <div class="file-list">
+            <h3>Files in Package:</h3>
+            <div class="file-item">00-namespace.yaml - Kubernetes namespace</div>
+            <div class="file-item">01-secrets.yaml - SASL credentials</div>
+            <div class="file-item">02-zookeeper.yaml - Zookeeper deployment</div>
+            <div class="file-item">03-kafka-broker.yaml - Kafka broker with SASL</div>
+            <div class="file-item">04-otel-collector.yaml - OpenTelemetry Collector</div>
+            <div class="file-item">05-kafka-consumer.yaml - Sample consumer</div>
+            <div class="file-item">06-kafka-producer.yaml - Sample producer</div>
+            <div class="file-item">README.md - Deployment instructions</div>
+            <div class="file-item">deploy.sh - Automated deployment script</div>
+        </div>
+
+        <div class="button-container">
+            <button id="downloadBtn">⬇️ Download ZIP Package</button>
+        </div>
+
+        <div class="success" id="successMsg">
+            ✅ Download started! Extract and follow the README.md instructions.
+        </div>
+
+        <div class="commands">
+            <code># Quick deployment commands:
+unzip kafka-otel-k8s.zip
+cd kafka-otel-k8s
+chmod +x deploy.sh
+./deploy.sh
+
+# Or manually:
+kubectl apply -f .
+
+# Test the deployment:
+kubectl get pods -n kafka-monitoring</code>
+        </div>
+    </div>
+
+    <script>
+        const files = {
+            '00-namespace.yaml': `---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka-monitoring
+`,
+            '01-secrets.yaml': `---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kafka-jaas
+  namespace: kafka-monitoring
+type: Opaque
+stringData:
+  kafka_jaas.conf: |
+    KafkaServer {
+      org.apache.kafka.common.security.plain.PlainLoginModule required
+      username="admin"
+      password="admin-secret"
+      user_admin="admin-secret"
+      user_producer="producer-secret"
+      user_consumer="consumer-secret";
+    };
+    Client {
+      org.apache.kafka.common.security.plain.PlainLoginModule required
+      username="admin"
+      password="admin-secret";
+    };
+`,
+            '02-zookeeper.yaml': `---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+  namespace: kafka-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+      - name: zookeeper
+        image: confluentinc/cp-zookeeper:7.5.0
+        ports:
+        - containerPort: 2181
+        env:
+        - name: ZOOKEEPER_CLIENT_PORT
+          value: "2181"
+        - name: ZOOKEEPER_TICK_TIME
+          value: "2000"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: kafka-monitoring
+spec:
+  ports:
+  - port: 2181
+    targetPort: 2181
+  selector:
+    app: zookeeper
+`,
+            '03-kafka-broker.yaml': `---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-broker
+  namespace: kafka-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-broker
+  template:
+    metadata:
+      labels:
+        app: kafka-broker
+    spec:
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:7.5.0
+        ports:
+        - containerPort: 9092
+        env:
+        - name: KAFKA_BROKER_ID
+          value: "0"
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          value: "zookeeper:2181"
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "SASL_PLAINTEXT://kafka-broker:9092"
+        - name: KAFKA_LISTENERS
+          value: "SASL_PLAINTEXT://:9092"
+        - name: KAFKA_SECURITY_INTER_BROKER_PROTOCOL
+          value: "SASL_PLAINTEXT"
+        - name: KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL
+          value: "PLAIN"
+        - name: KAFKA_SASL_ENABLED_MECHANISMS
+          value: "PLAIN"
+        - name: KAFKA_OPTS
+          value: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_jaas.conf"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "1"
+        volumeMounts:
+        - name: jaas-config
+          mountPath: /etc/kafka/secrets
+          readOnly: true
+      volumes:
+      - name: jaas-config
+        secret:
+          secretName: kafka-jaas
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-broker
+  namespace: kafka-monitoring
+spec:
+  ports:
+  - port: 9092
+    targetPort: 9092
+  selector:
+    app: kafka-broker
+`,
+            '04-otel-collector.yaml': `---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: kafka-monitoring
+data:
+  config.yaml: |
+    receivers:
+      kafkametrics:
+        brokers:
+          - kafka-broker:9092
+        protocol_version: 2.0.0
+        scrapers:
+          - brokers
+          - topics
+          - consumers
+        auth:
+          sasl:
+            username: admin
+            password: admin-secret
+            mechanism: PLAIN
+          tls:
+            insecure: true
+        collection_interval: 30s
+    
+    processors:
+      batch:
+        timeout: 10s
+        send_batch_size: 1024
+      
+      resource:
+        attributes:
+          - key: kafka.cluster
+            value: main-cluster
+            action: upsert
+    
+    exporters:
+      logging:
+        loglevel: info
+      
+      # Uncomment and configure for your backend
+      # otlp:
+      #   endpoint: your-otel-backend:4317
+      #   tls:
+      #     insecure: true
+      
+      # prometheus:
+      #   endpoint: "0.0.0.0:8889"
+    
+    service:
+      pipelines:
+        metrics:
+          receivers: [kafkametrics]
+          processors: [batch, resource]
+          exporters: [logging]
+      
+      telemetry:
+        logs:
+          level: info
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: kafka-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.91.0
+        ports:
+        - containerPort: 8889
+        - containerPort: 4317
+        - containerPort: 4318
+        volumeMounts:
+        - name: config
+          mountPath: /etc/otelcol
+      volumes:
+      - name: config
+        configMap:
+          name: otel-collector-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: kafka-monitoring
+spec:
+  ports:
+  - name: prometheus
+    port: 8889
+    targetPort: 8889
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+  selector:
+    app: otel-collector
+`,
+            '05-kafka-consumer.yaml': `---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-consumer
+  namespace: kafka-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-consumer
+    spec:
+      containers:
+      - name: consumer
+        image: confluentinc/cp-kafka:7.5.0
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Create consumer properties file
+          cat > /tmp/consumer.properties <<EOF
+          bootstrap.servers=kafka-broker:9092
+          group.id=test-consumer-group
+          auto.offset.reset=earliest
+          security.protocol=SASL_PLAINTEXT
+          sasl.mechanism=PLAIN
+          sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="consumer" password="consumer-secret";
+          EOF
+          
+          # Keep container running and consume messages
+          echo "Waiting for Kafka to be ready..."
+          sleep 30
+          
+          # Create test topic if it doesn't exist
+          kafka-topics --bootstrap-server kafka-broker:9092 \\
+            --command-config /tmp/consumer.properties \\
+            --create --if-not-exists --topic test-topic \\
+            --partitions 3 --replication-factor 1 || true
+          
+          echo "Starting consumer on topic: test-topic"
+          kafka-console-consumer --bootstrap-server kafka-broker:9092 \\
+            --topic test-topic \\
+            --consumer.config /tmp/consumer.properties \\
+            --from-beginning
+`,
+            '06-kafka-producer.yaml': `---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kafka-producer
+  namespace: kafka-monitoring
+spec:
+  containers:
+  - name: producer
+    image: confluentinc/cp-kafka:7.5.0
+    command:
+    - /bin/bash
+    - -c
+    - |
+      # Create producer properties file
+      cat > /tmp/producer.properties <<EOF
+      bootstrap.servers=kafka-broker:9092
+      security.protocol=SASL_PLAINTEXT
+      sasl.mechanism=PLAIN
+      sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="producer" password="producer-secret";
+      EOF
+      
+      echo "Waiting for Kafka to be ready..."
+      sleep 30
+      
+      # Create test topic if it doesn't exist
+      kafka-topics --bootstrap-server kafka-broker:9092 \\
+        --command-config /tmp/producer.properties \\
+        --create --if-not-exists --topic test-topic \\
+        --partitions 3 --replication-factor 1 || true
+      
+      echo "Producer ready. Send messages by executing into this pod:"
+      echo "kubectl exec -n kafka-monitoring kafka-producer -it -- kafka-console-producer --bootstrap-server kafka-broker:9092 --topic test-topic --producer.config /tmp/producer.properties"
+      
+      # Keep container running
+      tail -f /dev/null
+  restartPolicy: Always
+`,
+            'README.md': `# Kafka + OpenTelemetry on Kubernetes
+
+Complete deployment package for Apache Kafka with OpenTelemetry monitoring using SASL authentication.
+
+## 🎯 Components
+
+- **Kafka Broker**: Single broker with SASL/PLAIN authentication
+- **Zookeeper**: Required for Kafka coordination
+- **OpenTelemetry Collector**: Monitoring with kafkametrics receiver
+- **Sample Consumer**: Example consumer with consumer group
+- **Sample Producer**: Interactive producer pod for testing
+
+## 📋 Prerequisites
+
+- Kubernetes cluster (v1.19+)
+- kubectl configured
+- Sufficient cluster resources (at least 4GB RAM, 2 CPUs)
+
+## 🚀 Quick Start
+
+### Option 1: Automated Deployment
+\`\`\`bash
+chmod +x deploy.sh
+./deploy.sh
+\`\`\`
+
+### Option 2: Manual Deployment
+\`\`\`bash
+# Apply all manifests in order
+kubectl apply -f 00-namespace.yaml
+kubectl apply -f 01-secrets.yaml
+kubectl apply -f 02-zookeeper.yaml
+kubectl apply -f 03-kafka-broker.yaml
+kubectl apply -f 04-otel-collector.yaml
+kubectl apply -f 05-kafka-consumer.yaml
+kubectl apply -f 06-kafka-producer.yaml
+
+# Wait for pods to be ready
+kubectl wait --for=condition=ready pod -l app=kafka-broker -n kafka-monitoring --timeout=120s
+\`\`\`
+
+## 🔍 Verify Deployment
+
+\`\`\`bash
+# Check all pods are running
+kubectl get pods -n kafka-monitoring
+
+# View OpenTelemetry Collector logs (should show Kafka metrics)
+kubectl logs -n kafka-monitoring -l app=otel-collector -f
+
+# View consumer logs
+kubectl logs -n kafka-monitoring -l app=kafka-consumer -f
+\`\`\`
+
+## 📤 Send Test Messages
+
+\`\`\`bash
+# Execute into producer pod and send messages
+kubectl exec -n kafka-monitoring kafka-producer -it -- \\
+  kafka-console-producer \\
+  --bootstrap-server kafka-broker:9092 \\
+  --topic test-topic \\
+  --producer.config /tmp/producer.properties
+
+# Type messages and press Enter to send
+# Press Ctrl+C to exit
+\`\`\`
+
+## 👀 Monitor Metrics
+
+The OpenTelemetry Collector is configured to collect:
+- Broker metrics (CPU, memory, connections)
+- Topic metrics (partition count, replication)
+- Consumer metrics (lag, offset)
+
+By default, metrics are logged. To export to your observability platform:
+
+1. Edit \`04-otel-collector.yaml\`
+2. Uncomment and configure the appropriate exporter (OTLP, Prometheus, etc.)
+3. Apply the changes: \`kubectl apply -f 04-otel-collector.yaml\`
+
+## 🔐 Authentication
+
+SASL/PLAIN authentication is configured with three users:
+
+| Username | Password | Purpose |
+|----------|----------|---------|
+| admin | admin-secret | Broker admin |
+| producer | producer-secret | Message production |
+| consumer | consumer-secret | Message consumption |
+
+**⚠️ IMPORTANT**: Change these passwords in \`01-secrets.yaml\` before production use!
+
+## 🛠️ Customization
+
+### Change Kafka Configuration
+Edit the environment variables in \`03-kafka-broker.yaml\`
+
+### Modify Collection Interval
+In \`04-otel-collector.yaml\`, change \`collection_interval\` under the kafkametrics receiver
+
+### Add More Consumers/Producers
+Copy and modify \`05-kafka-consumer.yaml\` or \`06-kafka-producer.yaml\`
+
+## 🧹 Cleanup
+
+\`\`\`bash
+# Delete all resources
+kubectl delete namespace kafka-monitoring
+
+# Or delete individual components
+kubectl delete -f .
+\`\`\`
+
+## 📚 Additional Resources
+
+- [Apache Kafka Documentation](https://kafka.apache.org/documentation/)
+- [OpenTelemetry Kafka Receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kafkametricsreceiver)
+- [Kafka SASL Configuration](https://kafka.apache.org/documentation/#security_sasl)
+
+## 🐛 Troubleshooting
+
+### Pods not starting
+\`\`\`bash
+kubectl describe pod <pod-name> -n kafka-monitoring
+kubectl logs <pod-name> -n kafka-monitoring
+\`\`\`
+
+### Authentication errors
+Verify JAAS configuration in the kafka-jaas secret matches your connection settings
+
+### No metrics in OTEL Collector
+- Ensure Kafka broker is fully started before OTEL Collector
+- Check OTEL Collector logs for connection errors
+- Verify SASL credentials are correct
+
+## 📧 Support
+
+For issues related to:
+- Kafka: [Apache Kafka Users Mailing List](https://kafka.apache.org/contact)
+- OpenTelemetry: [CNCF Slack #otel](https://cloud-native.slack.com/)
+`,
+            'deploy.sh': `#!/bin/bash
+
+set -e
+
+echo "🚀 Deploying Kafka + OpenTelemetry on Kubernetes"
+echo "================================================"
+echo ""
+
+# Create namespace
+echo "📦 Creating namespace..."
+kubectl apply -f 00-namespace.yaml
+
+# Apply secrets
+echo "🔐 Applying secrets..."
+kubectl apply -f 01-secrets.yaml
+
+# Deploy Zookeeper
+echo "🐘 Deploying Zookeeper..."
+kubectl apply -f 02-zookeeper.yaml
+echo "⏳ Waiting for Zookeeper to be ready..."
+kubectl wait --for=condition=ready pod -l app=zookeeper -n kafka-monitoring --timeout=120s
+
+# Deploy Kafka Broker
+echo "📨 Deploying Kafka Broker..."
+kubectl apply -f 03-kafka-broker.yaml
+echo "⏳ Waiting for Kafka Broker to be ready..."
+kubectl wait --for=condition=ready pod -l app=kafka-broker -n kafka-monitoring --timeout=180s
+
+# Deploy OpenTelemetry Collector
+echo "📊 Deploying OpenTelemetry Collector..."
+kubectl apply -f 04-otel-collector.yaml
+echo "⏳ Waiting for OTEL Collector to be ready..."
+kubectl wait --for=condition=ready pod -l app=otel-collector -n kafka-monitoring --timeout=120s
+
+# Deploy Consumer
+echo "📥 Deploying Kafka Consumer..."
+kubectl apply -f 05-kafka-consumer.yaml
+
+# Deploy Producer
+echo "📤 Deploying Kafka Producer..."
+kubectl apply -f 06-kafka-producer.yaml
+
+echo ""
+echo "✅ Deployment Complete!"
+echo "======================="
+echo ""
+echo "📋 Next Steps:"
+echo ""
+echo "1. Check pod status:"
+echo "   kubectl get pods -n kafka-monitoring"
+echo ""
+echo "2. View OTEL Collector metrics:"
+echo "   kubectl logs -n kafka-monitoring -l app=otel-collector -f"
+echo ""
+echo "3. Send test messages:"
+echo "   kubectl exec -n kafka-monitoring kafka-producer -it -- \\\\"
+echo "     kafka-console-producer --bootstrap-server kafka-broker:9092 \\\\"
+echo "     --topic test-topic --producer.config /tmp/producer.properties"
+echo ""
+echo "4. View consumer output:"
+echo "   kubectl logs -n kafka-monitoring -l app=kafka-consumer -f"
+echo ""
+`
+        };
+
+        document.getElementById('downloadBtn').addEventListener('click', async function() {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = '⏳ Creating ZIP...';
+
+            try {
+                const zip = new JSZip();
+                const folder = zip.folder('kafka-otel-k8s');
+
+                // Add all files to zip
+                for (const [filename, content] of Object.entries(files)) {
+                    folder.file(filename, content);
+                }
+
+                // Generate zip file
+                const blob = await zip.generateAsync({type: 'blob'});
+                
+                // Create download link
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'kafka-otel-k8s.zip';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                // Show success message
+                document.getElementById('successMsg').style.display = 'block';
+                
+                btn.textContent = '✅ Downloaded!';
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = '⬇️ Download ZIP Package';
+                }, 3000);
+            } catch (error) {
+                console.error('Error creating zip:', error);
+                btn.textContent = '❌ Error - Try Again';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

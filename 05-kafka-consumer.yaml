@@ -1,0 +1,48 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-consumer
+  namespace: kafka-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-consumer
+    spec:
+      containers:
+      - name: consumer
+        image: confluentinc/cp-kafka:7.5.0
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Create consumer properties file
+          cat > /tmp/consumer.properties <<EOF
+          bootstrap.servers=kafka-broker:9092
+          group.id=test-consumer-group
+          auto.offset.reset=earliest
+          security.protocol=SASL_PLAINTEXT
+          sasl.mechanism=PLAIN
+          sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="consumer" password="consumer-secret";
+          EOF
+          
+          # Keep container running and consume messages
+          echo "Waiting for Kafka to be ready..."
+          sleep 30
+          
+          # Create test topic if it doesn't exist
+          kafka-topics --bootstrap-server kafka-broker:9092 \
+            --command-config /tmp/consumer.properties \
+            --create --if-not-exists --topic test-topic \
+            --partitions 3 --replication-factor 1 || true
+          
+          echo "Starting consumer on topic: test-topic"
+          kafka-console-consumer --bootstrap-server kafka-broker:9092 \
+            --topic test-topic \
+            --consumer.config /tmp/consumer.properties \
+            --from-beginning

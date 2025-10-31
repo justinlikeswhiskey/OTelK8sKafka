@@ -1,0 +1,111 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: kafka-monitoring
+data:
+  config.yaml: |
+    receivers:
+      kafkametrics:
+        brokers:
+          - kafka-broker:9092
+        protocol_version: 2.0.0
+        scrapers:
+          - brokers
+          - topics
+          - consumers
+        auth:
+          sasl:
+            username: admin
+            password: admin-secret
+            mechanism: PLAIN
+          tls:
+            insecure: true
+        collection_interval: 30s
+    
+    processors:
+      batch:
+        timeout: 10s
+        send_batch_size: 1024
+      
+      resource:
+        attributes:
+          - key: kafka.cluster
+            value: main-cluster
+            action: upsert
+    
+    exporters:
+      logging:
+        loglevel: info
+      
+      # Uncomment and configure for your backend
+      # otlp:
+      #   endpoint: your-otel-backend:4317
+      #   tls:
+      #     insecure: true
+      
+      # prometheus:
+      #   endpoint: "0.0.0.0:8889"
+    
+    service:
+      pipelines:
+        metrics:
+          receivers: [kafkametrics]
+          processors: [batch, resource]
+          exporters: [logging]
+      
+      telemetry:
+        logs:
+          level: info
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: kafka-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.91.0
+        ports:
+        - containerPort: 8889
+        - containerPort: 4317
+        - containerPort: 4318
+        volumeMounts:
+        - name: config
+          mountPath: /etc/otelcol
+      volumes:
+      - name: config
+        configMap:
+          name: otel-collector-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: kafka-monitoring
+spec:
+  ports:
+  - name: prometheus
+    port: 8889
+    targetPort: 8889
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+  selector:
+    app: otel-collector
